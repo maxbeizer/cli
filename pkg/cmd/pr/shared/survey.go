@@ -417,7 +417,9 @@ func TitledEditSurvey(editor Editor) func(string, string) (string, string, error
 		}
 
 		titleAndBody = strings.ReplaceAll(titleAndBody, "\r\n", "\n")
-		titleAndBody, _, _ = strings.Cut(titleAndBody, editorHintMarker)
+		if markerIndex := strings.LastIndex(titleAndBody, editorHintMarker); markerIndex >= 0 {
+			titleAndBody = titleAndBody[:markerIndex]
+		}
 		title, body, _ := strings.Cut(titleAndBody, "\n")
 		return title, strings.TrimSuffix(body, "\n"), nil
 	}

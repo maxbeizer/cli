@@ -34,15 +34,17 @@ func TestNewCmdEdit(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpImage, []byte("the bytes"), 0600))
 
 	tests := []struct {
-		name             string
-		input            string
-		stdin            string
-		output           EditOptions
-		wantAssetPaths   []string
-		expectedBaseRepo ghrepo.Interface
-		wantsErr         bool
-		nonTTY           bool
-		config           func() (gh.Config, error)
+		name               string
+		input              string
+		stdin              string
+		output             EditOptions
+		wantAssetPaths     []string
+		expectedBaseRepo   ghrepo.Interface
+		wantsErr           bool
+		wantsErrMsg        string
+		wantStdinUnchanged bool
+		nonTTY             bool
+		config             func() (gh.Config, error)
 	}{
 		{
 			name:  "no argument",
@@ -339,9 +341,24 @@ func TestNewCmdEdit(t *testing.T) {
 			wantsErr: true,
 		},
 		{
-			name:     "editor flag with body-file flag",
-			input:    fmt.Sprintf("23 --editor --body-file '%s'", tmpFile),
-			wantsErr: true,
+			name:        "editor flag with body-file flag",
+			input:       fmt.Sprintf("23 --editor --body-file '%s'", tmpFile),
+			wantsErr:    true,
+			wantsErrMsg: "specify only one of `--body`, `--body-file`, or `--editor`",
+		},
+		{
+			name:        "editor flag with missing body-file",
+			input:       "23 --editor --body-file ./missing-body.md",
+			wantsErr:    true,
+			wantsErrMsg: "specify only one of `--body`, `--body-file`, or `--editor`",
+		},
+		{
+			name:               "editor flag with body from stdin",
+			input:              "23 --editor --body-file -",
+			stdin:              "must not be read",
+			wantsErr:           true,
+			wantsErrMsg:        "specify only one of `--body`, `--body-file`, or `--editor`",
+			wantStdinUnchanged: true,
 		},
 		{
 			name:  "editor false with body flag",
@@ -350,6 +367,16 @@ func TestNewCmdEdit(t *testing.T) {
 				SelectorArg: "23",
 				Editable: shared.Editable{
 					Body: shared.EditableString{Value: "test", Edited: true},
+				},
+			},
+		},
+		{
+			name:  "editor false with body-file flag",
+			input: fmt.Sprintf("23 --editor=false --body-file '%s'", tmpFile),
+			output: EditOptions{
+				SelectorArg: "23",
+				Editable: shared.Editable{
+					Body: shared.EditableString{Value: "a body from file", Edited: true},
 				},
 			},
 		},
@@ -474,7 +501,13 @@ func TestNewCmdEdit(t *testing.T) {
 
 			_, err = cmd.ExecuteC()
 			if tt.wantsErr {
-				assert.Error(t, err)
+				require.Error(t, err)
+				if tt.wantsErrMsg != "" {
+					require.EqualError(t, err, tt.wantsErrMsg)
+				}
+				if tt.wantStdinUnchanged {
+					assert.Equal(t, tt.stdin, stdin.String())
+				}
 				return
 			}
 

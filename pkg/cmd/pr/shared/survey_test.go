@@ -212,6 +212,35 @@ Lines below dotted lines will be ignored, and an empty title aborts the process.
 	assert.Equal(t, "editedBody", body)
 }
 
+func TestTitledEditSurvey_preservesHintMarkersInBody(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "one marker",
+			body: "before\n" + editorHintMarker + "\nafter",
+		},
+		{
+			name: "multiple markers",
+			body: "before\n" + editorHintMarker + "\nbetween\n" + editorHintMarker + "\nafter",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			editor := &testEditor{edit: func(s string) (string, error) {
+				return s, nil
+			}}
+
+			title, body, err := TitledEditSurvey(editor)("initialTitle", tt.body)
+			require.NoError(t, err)
+			assert.Equal(t, "initialTitle", title)
+			assert.Equal(t, tt.body, body)
+		})
+	}
+}
+
 type testEditor struct {
 	edit func(string) (string, error)
 }

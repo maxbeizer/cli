@@ -165,6 +165,8 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
 
 			bodyProvided := flags.Changed("body")
 			bodyFileProvided := bodyFile != ""
+			editorFlagChanged := flags.Changed("editor")
+			editorModeExplicit := editorFlagChanged && opts.EditorMode
 
 			if err := cmdutil.MutuallyExclusive(
 				"specify only one of `--body` or `--body-file`",
@@ -172,6 +174,9 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
 				bodyFileProvided,
 			); err != nil {
 				return err
+			}
+			if editorModeExplicit && (bodyProvided || bodyFileProvided) {
+				return cmdutil.FlagErrorf("specify only one of `--body`, `--body-file`, or `--editor`")
 			}
 			if bodyProvided || bodyFileProvided {
 				opts.Editable.Body.Edited = true
@@ -228,8 +233,6 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
 			}
 			opts.Assets = resolved
 
-			editorFlagChanged := flags.Changed("editor")
-			editorModeExplicit := editorFlagChanged && opts.EditorMode
 			hasExplicitEdit := opts.Editable.Dirty() || len(opts.Assets) > 0
 			if editorModeExplicit || (!editorFlagChanged && !hasExplicitEdit) {
 				editorMode, err := shared.InitEditorMode(f, opts.EditorMode, false, opts.IO.CanPrompt())
@@ -237,10 +240,6 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
 					return err
 				}
 				opts.EditorMode = editorMode
-			}
-
-			if editorModeExplicit && (bodyProvided || bodyFileProvided) {
-				return cmdutil.FlagErrorf("specify only one of `--body`, `--body-file`, or `--editor`")
 			}
 
 			if !opts.Editable.Dirty() && len(opts.Assets) == 0 && !opts.EditorMode {
